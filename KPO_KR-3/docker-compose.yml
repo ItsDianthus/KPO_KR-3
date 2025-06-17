@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    restart: always
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    restart: always
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "orders.created:1:1,payments.processed:1:1"
+
+  postgres-orders:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: orders_user
+      POSTGRES_PASSWORD: orders_pass
+      POSTGRES_DB: orders_db
+    volumes:
+      - orders-data:/var/lib/postgresql/data
+
+  postgres-payments:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: payments_user
+      POSTGRES_PASSWORD: payments_pass
+      POSTGRES_DB: payments_db
+    volumes:
+      - payments-data:/var/lib/postgresql/data
+
+  orders-service:
+    build: ./orders-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres-orders
+      - kafka
+    environment:
+      - DB_HOST=postgres-orders
+      - DB_PORT=5432
+      - DB_USER=orders_user
+      - DB_PASSWORD=orders_pass
+      - DB_NAME=orders_db
+      - KAFKA_BROKER=kafka:9092
+      - ORDERS_TOPIC=orders.created
+
+  payments-service:
+    build: ./payments-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres-payments
+      - kafka
+    environment:
+      - DB_HOST=postgres-payments
+      - DB_PORT=5432
+      - DB_USER=payments_user
+      - DB_PASSWORD=payments_pass
+      - DB_NAME=payments_db
+      - KAFKA_BROKER=kafka:9092
+      - ORDERS_TOPIC=orders.created
+      - PAYMENTS_TOPIC=payments.processed
+
+  api-gateway:
+    build: ./api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - orders-service
+      - payments-service
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+
+volumes:
+  orders-data:
+  payments-data:

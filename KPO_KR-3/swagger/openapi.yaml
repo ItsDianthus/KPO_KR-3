@@ -1,0 +1,134 @@
+openapi: "3.0.1"
+info:
+  title: Shop Microservices API
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080
+paths:
+  /orders:
+    post:
+      summary: Create a new order
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: amount
+          schema:
+            type: number
+          required: true
+      responses:
+        '201':
+          description: The ID of the created order
+          content:
+            text/plain:
+              schema:
+                type: integer
+    get:
+      summary: List all orders
+      responses:
+        '200':
+          description: Array of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+  /orders/{orderId}:
+    get:
+      summary: Get order by ID
+      parameters:
+        - in: path
+          name: orderId
+          schema:
+            type: integer
+          required: true
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+
+  /payments/accounts:
+    post:
+      summary: Create a new account
+      parameters:
+        - in: query
+          name: user_id
+          schema:
+            type: string
+          required: true
+      responses:
+        '201':
+          description: Account created
+
+  /payments/accounts/{userId}/balance:
+    get:
+      summary: Get account balance
+      parameters:
+        - in: path
+          name: userId
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Account balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '404':
+          description: Account not found
+
+  /payments/accounts/{userId}/topup:
+    post:
+      summary: Top up account
+      parameters:
+        - in: path
+          name: userId
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: amount
+          schema:
+            type: number
+          required: true
+      responses:
+        '204':
+          description: Top-up successful
+        '400':
+          description: Invalid request parameters
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Account:
+      type: object
+      properties:
+        user_id:
+          type: string
+        balance:
+          type: number
