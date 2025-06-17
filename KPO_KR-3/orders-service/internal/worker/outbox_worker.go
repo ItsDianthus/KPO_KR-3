@@ -9,7 +9,6 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// RunOutboxWorker читает неотправленные записи из outbox и отправляет их в Kafka
 func RunOutboxWorker(db *sql.DB, writer *kafka.Writer) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()

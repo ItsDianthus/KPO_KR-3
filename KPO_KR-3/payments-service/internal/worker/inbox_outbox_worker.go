@@ -14,9 +14,7 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// RunInboxOutboxWorker одновр. читает из Kafka и публикует из outbox
 func RunInboxOutboxWorker(db *sql.DB, reader *kafka.Reader, writer *kafka.Writer) {
-	// Консьюмер входящих событий
 	go func() {
 		for {
 			msg, err := reader.ReadMessage(context.Background())
@@ -32,20 +30,17 @@ func RunInboxOutboxWorker(db *sql.DB, reader *kafka.Reader, writer *kafka.Writer
 				log.Println("tx begin:", err)
 				continue
 			}
-			// 1) вставляем в inbox
 			if err := repo.InsertInbox(tx, messageID, msg.Value); err != nil {
 				log.Println("insert inbox:", err)
 				tx.Rollback()
 				continue
 			}
-			// 2) проверяем processed
 			var processed bool
 			tx.QueryRow(`SELECT processed FROM inbox WHERE message_id=$1`, messageID).Scan(&processed)
 			if processed {
 				tx.Rollback()
 				continue
 			}
-			// 3) десериализуем и списываем баланс
 			var evt model.OrderCreatedEvent
 			json.Unmarshal(msg.Value, &evt)
 			status := "success"
@@ -55,7 +50,6 @@ func RunInboxOutboxWorker(db *sql.DB, reader *kafka.Reader, writer *kafka.Writer
 			); err != nil {
 				status = "failed"
 			}
-			// 4) пишем в outbox
 			payEvt := model.PaymentProcessedEvent{
 				OrderID:     evt.OrderID,
 				UserID:      evt.UserID,
@@ -66,13 +60,11 @@ func RunInboxOutboxWorker(db *sql.DB, reader *kafka.Reader, writer *kafka.Writer
 			data, _ := json.Marshal(payEvt)
 			repo.InsertOutbox(tx, "payments.processed", data)
 
-			// 5) отмечаем inbox.processed
 			repo.MarkInboxProcessed(tx, messageID)
 			tx.Commit()
 		}
 	}()
 
-	// Публикатор outbox
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {

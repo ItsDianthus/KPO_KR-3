@@ -16,8 +16,6 @@ import (
 	"github.com/ItsDianthus/shop/payments-service/internal/worker"
 )
 
-// waitForKafka будет пытаться подключиться к лидеру указанной темы,
-// пока соединение не установится успешно.
 func waitForKafka(broker, topic string) {
 	for {
 		conn, err := kafka.DialLeader(context.Background(), "tcp", broker, topic, 0)
@@ -33,7 +31,6 @@ func waitForKafka(broker, topic string) {
 }
 
 func main() {
-	// 1. Подключение к БД
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		os.Getenv("DB_HOST"),
@@ -52,7 +49,6 @@ func main() {
 	}
 	log.Println("Connected to payments DB")
 
-	// 2. Миграции: создаём необходимые таблицы
 	if _, err := db.Exec(`
 CREATE TABLE IF NOT EXISTS accounts (
   user_id TEXT PRIMARY KEY,
@@ -76,15 +72,12 @@ CREATE TABLE IF NOT EXISTS outbox (
 	}
 	log.Println("Migrations applied")
 
-	// 3. Настройка Kafka
-	broker := os.Getenv("KAFKA_BROKER")          // e.g. "kafka:9092"
-	ordersTopic := os.Getenv("ORDERS_TOPIC")     // e.g. "orders.created"
-	paymentsTopic := os.Getenv("PAYMENTS_TOPIC") // e.g. "payments.processed"
+	broker := os.Getenv("KAFKA_BROKER")
+	ordersTopic := os.Getenv("ORDERS_TOPIC")
+	paymentsTopic := os.Getenv("PAYMENTS_TOPIC")
 
-	// Ждём, пока Kafka поднимется и будет отдавать сообщения
 	waitForKafka(broker, ordersTopic)
 
-	// Консьюмер для входящих событий orders.created
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:     []string{broker},
 		GroupID:     "payments-service",
@@ -92,20 +85,17 @@ CREATE TABLE IF NOT EXISTS outbox (
 	})
 	defer reader.Close()
 
-	// Публикатор для исходящих событий payments.processed
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: []string{broker},
 		Topic:   paymentsTopic,
 	})
 	defer writer.Close()
 
-	// 4. Запуск фонового воркера (Inbox → Process → Outbox → Kafka)
 	go worker.RunInboxOutboxWorker(db, reader, writer)
 
-	// 5. HTTP API: создание счёта, пополнение и просмотр баланса
 	mux := http.NewServeMux()
-	mux.HandleFunc("/accounts", handler.CreateAccountHandler(db)) // POST ?user_id=...
-	mux.HandleFunc("/accounts/", handler.AccountHandler(db))      // GET /accounts/{id}/balance, POST /accounts/{id}/topup
+	mux.HandleFunc("/accounts", handler.CreateAccountHandler(db))
+	mux.HandleFunc("/accounts/", handler.AccountHandler(db))
 
 	addr := ":8082"
 	log.Println("Payments service listening on", addr)

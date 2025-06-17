@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-	// Настройка подключения к БД
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		os.Getenv("DB_HOST"),
@@ -33,7 +32,6 @@ func main() {
 	}
 	log.Println("Connected to orders DB")
 
-	// Миграции: создаём таблицы orders и outbox
 	if _, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY,
@@ -54,19 +52,16 @@ func main() {
 	}
 	log.Println("Migrations applied")
 
-	// Настройка Kafka-writer
-	broker := os.Getenv("KAFKA_BROKER") // например "kafka:9092"
-	topic := os.Getenv("ORDERS_TOPIC")  // "orders.created"
+	broker := os.Getenv("KAFKA_BROKER")
+	topic := os.Getenv("ORDERS_TOPIC")
 	writer := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: []string{broker},
 		Topic:   topic,
 	})
 	defer writer.Close()
 
-	// Запускаем фонового воркера для outbox
 	go worker.RunOutboxWorker(db, writer)
 
-	// HTTP-сервер
 	mux := http.NewServeMux()
 	mux.HandleFunc("/orders", handler.CreateOrderHandler(db, writer))
 	mux.HandleFunc("/orders/", handler.GetOrderOrListHandler(db))

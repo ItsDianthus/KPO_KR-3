@@ -2,7 +2,6 @@ package repo
 
 import "database/sql"
 
-// CREATE TABLE accounts...
 func CreateAccount(db *sql.DB, userID string) error {
 	_, err := db.Exec(`INSERT INTO accounts(user_id) VALUES($1)`, userID)
 	return err
@@ -19,7 +18,6 @@ func TopUp(db *sql.DB, userID string, amount float64) error {
 	return err
 }
 
-// Inbox operations
 func InsertInbox(tx *sql.Tx, messageID string, payload []byte) error {
 	_, err := tx.Exec(`
         INSERT INTO inbox(message_id, payload)
@@ -34,7 +32,6 @@ func MarkInboxProcessed(tx *sql.Tx, messageID string) error {
 	return err
 }
 
-// Outbox operations
 func InsertOutbox(tx *sql.Tx, topic string, payload []byte) error {
 	_, err := tx.Exec(`INSERT INTO outbox(topic, payload) VALUES($1, $2)`, topic, payload)
 	return err

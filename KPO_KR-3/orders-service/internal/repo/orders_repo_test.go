@@ -16,7 +16,6 @@ func TestCreateOrder(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Ожидаем Begin → QueryRow → Commit
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`INSERT INTO orders(user_id, amount) VALUES($1, $2) RETURNING id`,
@@ -88,7 +87,6 @@ func TestGetOrderByID(t *testing.T) {
 	}
 	defer db.Close()
 
-	// Подготовим фиктивное время для сравнения
 	now := time.Now().Truncate(time.Second)
 
 	mock.ExpectQuery(regexp.QuoteMeta(

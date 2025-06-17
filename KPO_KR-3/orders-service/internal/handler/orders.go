@@ -13,7 +13,6 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// CreateOrderHandler -- POST /orders?user_id=...&amount=...
 func CreateOrderHandler(db *sql.DB, writer *kafka.Writer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -34,7 +33,6 @@ func CreateOrderHandler(db *sql.DB, writer *kafka.Writer) http.HandlerFunc {
 			return
 		}
 
-		// 1) создаём заказ
 		orderID, err := repo.CreateOrder(tx, userID, amount)
 		if err != nil {
 			tx.Rollback()
@@ -42,7 +40,6 @@ func CreateOrderHandler(db *sql.DB, writer *kafka.Writer) http.HandlerFunc {
 			return
 		}
 
-		// 2) пишем событие в outbox
 		evt := model.OrderCreatedEvent{
 			OrderID:   orderID,
 			UserID:    userID,
@@ -67,12 +64,10 @@ func CreateOrderHandler(db *sql.DB, writer *kafka.Writer) http.HandlerFunc {
 	}
 }
 
-// GetOrderOrListHandler -- GET /orders and GET /orders/{id}
 func GetOrderOrListHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if path == "/orders" || path == "/orders/" {
-			// список
 			orders, err := repo.ListOrders(db)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -80,7 +75,6 @@ func GetOrderOrListHandler(db *sql.DB) http.HandlerFunc {
 			}
 			json.NewEncoder(w).Encode(orders)
 		} else {
-			// конкретный заказ
 			idStr := path[len("/orders/"):]
 			id, err := strconv.Atoi(idStr)
 			if err != nil {
